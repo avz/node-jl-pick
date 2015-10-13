@@ -404,8 +404,6 @@ void usage(const char *cmd) {
 int main(int argc, char *argv[]) {
 	char line[1024 * 16];
 	JsonPicker p;
-	std::list<std::string> segs;
-
 	bool ignoreJsonErrors = false;
 	int opt;
 
@@ -425,20 +423,50 @@ int main(int argc, char *argv[]) {
 		exit(255);
 	}
 
+	/**
+	 * Это просто хранилище для строк, чтобы были валидные указатели
+	 */
+	std::list<std::string> segs;
+
 	for(int i = optind; i < argc; i++) {
 		JsonPath path;
-		char *token;
+		std::string seg("\"");
 
-		token = strtok(argv[i], ".");
-		while(token) {
-			std::string seg;
-			seg.append("\"");
-			seg.append(token);
-			seg.append("\"");
+		char *ptr = argv[i];
+		bool escaped = false;
+
+		while(*ptr) {
+			if(*ptr == '\\') {
+				escaped = true;
+				ptr++;
+				continue;
+			}
+
+			if(escaped) {
+				seg += *ptr;
+				escaped = false;
+				ptr++;
+				continue;
+			}
+
+			if(*ptr == '.') {
+				seg += '"';
+				segs.push_back(seg);
+				seg = "\"";
+
+				path.push(segs.back().c_str());
+			} else {
+				seg += *ptr;
+			}
+
+			ptr++;
+		}
+
+		if(seg.size() > 1) {
+			seg += '"';
 			segs.push_back(seg);
 
 			path.push(segs.back().c_str());
-			token = strtok(NULL, ".");
 		}
 
 		p.addPath(path);
