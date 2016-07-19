@@ -216,6 +216,9 @@ class JsonPicker {
 			path->pop();
 
 			t = tokenizer->next();
+			if (!t) {
+				throw "Unexpected end of stream";
+			}
 
 			if(!parentMatched) {
 				if(keyMatched) {
@@ -270,6 +273,9 @@ class JsonPicker {
 			}
 
 			t = tokenizer->next();
+			if (!t) {
+				throw "Unexpected end of stream";
+			}
 
 			if(!parentMatched && valueMatched) {
 				writeBack(',');
