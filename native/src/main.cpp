@@ -403,12 +403,88 @@ public:
 	}
 };
 
+class LineReader
+{
+	char *buf;
+	size_t bufLength;
+	const size_t maxBufLength;
+
+	void realloc()
+	{
+		char *newBuf;
+		size_t newLength;
+
+		if (!this->buf) {
+			newLength = 16 * 1024;
+			newBuf = (char *)malloc(newLength);
+		} else {
+			newLength = this->bufLength * 2;
+
+			if (newLength > this->maxBufLength) {
+				throw "Line is too large";
+			}
+
+			newBuf = (char *)::realloc(this->buf, newLength);
+		}
+
+		if (!newBuf) {
+			throw "Out of memory";
+		}
+
+		this->bufLength = newLength;
+		this->buf = newBuf;
+	}
+public:
+	LineReader(): buf(NULL), bufLength(0), maxBufLength(1024 * 1024 * 256)
+	{
+	}
+
+	~LineReader()
+	{
+		if (this->buf) {
+			free(this->buf);
+		}
+	}
+
+	const char *fgets(FILE *stream)
+	{
+		if (!this->buf) {
+			this->realloc();
+		}
+
+		this->buf[0] = 0;
+
+		size_t off = 0;
+
+		while(::fgets(this->buf + off, (int)((ssize_t)this->bufLength - (ssize_t)off), stream)) {
+			size_t readed = strlen(this->buf + off);
+			if (this->buf[off + readed - 1] == '\n') {
+				return this->buf;
+			}
+
+			off += readed;
+
+			while (off + 1 >= this->bufLength) {
+				this->realloc();
+			}
+		}
+
+		if (this->buf[0] == 0) {
+			return NULL;
+		}
+
+		return this->buf;
+	}
+};
+
+
 void usage(const char *cmd) {
 	fprintf(stderr, "Usage: %s [-I] path1 [ path2 [...]]]\n", cmd);
 }
 
 int main(int argc, char *argv[]) {
-	char line[1024 * 16];
+	const char *line;
+	LineReader lineReader;
 	JsonPicker p;
 	bool ignoreJsonErrors = false;
 	int opt;
@@ -478,7 +554,7 @@ int main(int argc, char *argv[]) {
 		p.addPath(path);
 	}
 
-	while(fgets(line, sizeof(line), stdin)) {
+	while((line = lineReader.fgets(stdin))) {
 
 		try {
 			p.pick(line, strlen(line));
